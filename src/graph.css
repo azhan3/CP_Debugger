@@ -1,0 +1,54 @@
+.node {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: black;
+    position: absolute;
+    color: white;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    cursor: grab;
+    /* filter: drop-shadow(10px 10px 10px #272727);*/
+  }
+  
+
+  
+  .edge {
+    position: absolute;
+    border: 1px solid black;
+    left: 100%;
+    top: 100%;
+  }
+  
+  
+  .arrow-head {
+    
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 9px solid rgb(0, 0, 0);
+    position: absolute;
+}
+
+  .weight-label {
+    position: absolute;
+    text-align: center;
+    width: auto;
+    padding: 2px;
+    background-color: rgba(255, 255, 255, 0);
+    font-size: 14px;
+  }
+
+  .noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+      -webkit-user-select: none; /* Safari */
+       -khtml-user-select: none; /* Konqueror HTML */
+         -moz-user-select: none; /* Old versions of Firefox */
+          -ms-user-select: none; /* Internet Explorer/Edge */
+              user-select: none; /* Non-prefixed version, currently
+                                    supported by Chrome, Edge, Opera and Firefox */
+  }

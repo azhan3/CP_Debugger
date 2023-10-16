@@ -1,0 +1,31 @@
+.code_display {
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+}
+
+.code_display code {
+    display: block;
+    white-space: pre-wrap;
+}
+
+.gutter {
+    background-color: #ddd;
+    background-repeat: no-repeat;
+    background-position: 50%;
+}
+
+.gutter:hover {
+    background-color: #ccc;
+}
+
+.gutter.gutter-horizontal {
+    cursor: col-resize;
+}
+
+.split {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
