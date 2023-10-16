@@ -1,0 +1,33 @@
+body {
+  padding: 50px;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+
+a {
+  color: #00B7FF;
+}
+canvas {
+  background: black;
+}
+
+.node {
+  width: 30px;
+  height: 30px;
+  background-color: #3498db;
+  color: #fff;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 30px;
+  position: absolute;
+  cursor: pointer;
+}
+
+.edge {
+  position: absolute;
+  background-color: #ccc;
+}
+.node text.label {
+  fill: white;
+  position: relative;
+  z-index: 1; /* Set a value greater than the nodes */
+}
