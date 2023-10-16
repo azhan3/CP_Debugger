@@ -1,5 +1,4 @@
 // public/javascripts/script.js
-
 const adjacencyList = {
     "0": [6, 13, 15, 24],
     "1": [5, 11, 17, 26],
@@ -85,13 +84,17 @@ node.append("text")
     .style("fill", "white")
     .style("z-index", "1")
     .text(d => d.id);
-graphData.nodes.forEach((node, index) => {
-    const col = index % numColumns;
-    const row = Math.floor(index / numColumns);
+function orient() {
+    console.log(graphData)
+    graphData.nodes.forEach((node, index) => {
+        const col = index % numColumns;
+        const row = Math.floor(index / numColumns);
 
-    node.x = col * 100; // Adjust the horizontal spacing as needed
-    node.y = row * rowSpacing; // Use the row number for vertical positioning
-});
+        node.x = col * 100; // Adjust the horizontal spacing as needed
+        node.y = row * rowSpacing; // Use the row number for vertical positioning
+    });
+}
+orient()
 console.log(graphData);
 const simulation = d3.forceSimulation(graphData.nodes)
     .force("charge", d3.forceLink(graphData.links).distance(25))
@@ -117,8 +120,6 @@ function dragStarted(event) {
     if (!event.active) simulation.alphaTarget(0.005).restart();
     event.subject.fx = event.subject.x;
     event.subject.fy = event.subject.y;
-    simulation.force("link", d3.forceLink(graphData.links).distance(500));
-    simulation.force("charge", d3.forceManyBody().strength(-200));
 
 }
 
@@ -152,3 +153,19 @@ function dragEnded(event) {
         event.subject.fy = null;
     }
 }
+document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById('expand').addEventListener('click', function() {
+        simulation.force("link", d3.forceLink(graphData.links).distance(500));
+        simulation.force("charge", d3.forceManyBody().strength(-200));
+    });
+});
+document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById('collapse').addEventListener('click', function() {
+
+        orient()
+        simulation.force("link", null);
+
+        simulation.force("charge", d3.forceManyBody().strength(-30))
+        simulation.alphaTarget(0).restart();
+    });
+});
