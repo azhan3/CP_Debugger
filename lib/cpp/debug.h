@@ -1,11 +1,8 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
-#include <netinet/in.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <cctype>
@@ -22,6 +19,10 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
+#include <curl/curl.h>
+
+#include <fstream>
 
 using std::begin;
 using std::decay_t;
@@ -42,6 +43,7 @@ using std::reverse;
 using std::stack;
 using std::string;
 using std::vector;
+
 
 string json_escape(const string &str) {
     string output;
@@ -520,19 +522,65 @@ const vector<string> &split_args(const string &s) {
 bool ex = false;
 JSON dat;
 
-void print_data() {
+/*void print_data() {
     std::cerr << dat << "\n";
+}*/
+
+
+
+static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
 }
 
-#define dbg(...)                                                             \
-    [](const auto &...x) {                                                   \
-        JSON obj({"line", __LINE__, "content", JSON()});                     \
-        vector<string> vs = split_args(#__VA_ARGS__);                        \
-        int ind = 0;                                                         \
+
+void print_data() {
+    CURL *curl;
+    JSON json_data = dat; 
+
+    curl_global_init(CURL_GLOBAL_ALL);
+    curl = curl_easy_init();
+
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000/data");
+
+        curl_easy_setopt(curl, CURLOPT_POST, 1);
+
+        std::string json_str = json_data.dump();  
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_str.c_str());
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        CURLcode res = curl_easy_perform(curl);
+
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        }
+
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+    } else {
+        std::cerr << "Error initializing libcurl." << std::endl;
+    }
+
+    std::cout << "DAT ==> " << dat.dump() << "\n";
+}
+
+
+
+
+#define dbg(...)                                                         \
+    [](const auto &...x) {                                               \
+        JSON obj({"line", __LINE__, "content", JSON()});                 \
+        vector<string> vs = split_args(#__VA_ARGS__);                    \
+        int ind = 0;                                                     \
         ((obj["content"].append(JSON({"id", vs[ind++], "value", JSON(x)}))), \
-         ...);                                                               \
-        dat.append(obj);                                                     \
-        if (!ex) std::atexit(print_data), ex = 1;                             \
+         ...);                                                           \
+        dat.append(obj);                                                 \
+        if (!ex) std::atexit(print_data), ex = 1;                         \
     }(__VA_ARGS__)
 
 #endif
