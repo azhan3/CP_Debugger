@@ -1,13 +1,87 @@
 extends graph
 
 block content
-    div#graph
     script(src='/javascripts/d3.v6.min.js')
-    script(src='/javascripts/script.js')
+
+    -  const n = pages
+    -  const cnt = subLists
+    div#page-container
+        - for (let i = 0; i < n; i++) {
+            div.page(id=`page${i}`, data-page=i)
+                - for (let j = 0 ; j < subLists[i] ; ++j) {
+                    div.page(id=`subpage${i}-${j}`, data-page=j)
+                - }
+        - }
+        script.
+            document.addEventListener('DOMContentLoaded', function () {
+                setPageVisibility(0, 0);
+            });
+        script(src='/javascripts/script.js' type="module")
 
 block buttons
     script(src='/javascripts/button.js')
 
     div#button-container
-        button(id="expand") Expand
-        button(id="collapse") Collapse
+        button(id = "MainPrevious") Previous
+        button(id = "MainNext") Next
+        button(id = "SubPrevious") Sub - Previous
+        button(id = "SubNext") Sub - Next
+
+        script.
+            let currentMainPage = 0;
+            let currentSubPage = 0;
+
+            const totalPages = Number(#{pages}); // Convert to a JavaScript number
+            const subLists = ('!{subLists}');
+
+            function setPageVisibility(page, subpage) {
+                for (let i = 0; i < totalPages; i++) {
+                    const pageElement = document.getElementById(`page${i}`);
+                    if (i === page) {
+                        pageElement.style.display = 'block';
+                    } else {
+                        pageElement.style.display = 'none';
+                    }
+                }
+            console.log(subLists);
+
+            for (let i = 0; i < totalPages; i++) {
+                    for (let j = 0; j < subLists[i]; j++) {
+                        const subpageElement = document.getElementById(`subpage${i}-${j}`);
+                        if (i === page && j === subpage) {
+                            subpageElement.style.display = 'block';
+                        } else {
+                            subpageElement.style.display = 'none';
+                        }
+                    }
+                }
+            }
+            document.getElementById("MainPrevious").addEventListener("click", function() {
+                if (currentMainPage > 0) {
+                    currentMainPage--;
+                    setPageVisibility(currentMainPage, currentSubPage);
+                }
+            });
+
+            document.getElementById("MainNext").addEventListener("click", function() {
+                if (currentMainPage < totalPages - 1) {
+                    currentMainPage++;
+                    setPageVisibility(currentMainPage, currentSubPage);
+                }
+            });
+
+            document.getElementById("SubPrevious").addEventListener("click", function() {
+                if (currentSubPage > 0) {
+                    currentSubPage--;
+                    setPageVisibility(currentMainPage, currentSubPage);
+                }
+            });
+
+            document.getElementById("SubNext").addEventListener("click", function() {
+                if (currentSubPage < subLists[currentMainPage] - 1) {
+                    currentSubPage++;
+                    setPageVisibility(currentMainPage, currentSubPage);
+                }
+            });
+
+

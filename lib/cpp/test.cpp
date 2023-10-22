@@ -27,7 +27,9 @@ int main() {
         adj[u].push_back(v);
         adj[v].push_back(u);
     }
-    dbg(adj, adj);
+    vector<vector<int>>adj2 = {{1, 2}, {2}, {0}};
+    dbg(adj, adj2);
+    dbg(adj);
 
 
     return 0;

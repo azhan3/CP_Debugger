@@ -36,12 +36,12 @@ router.post('/', async function (req, res, next) {
 
     const payload = req.body;
 
-    console.log('Request body:', payload[0]['content']);
+    console.log('Request body:', payload);
 
     const jsonData = JSON.stringify(payload);
 
     // Store the payload in the variable
-    storedPayload = jsonData;
+    storedPayload = payload;
 
     writeFile('storage.json', jsonData, (err) => {
         if (err) {
@@ -50,21 +50,41 @@ router.post('/', async function (req, res, next) {
             console.log('JSON file written successfully.');
         }
     });
-
-    openWebsite('http://localhost:3000/graph');
+    openWebsite(`http://localhost:3000/graph?pages=${payload.length}`);
 
     // Send a response (if needed)
     res.send('POST request received');
 });
 
+router.get('/cnt', (req, res) => {
+    try {
+        // Read the JSON data from the file
+        console.log('Received POST request to update CUR');
+
+        let ret = [];
+
+        storedPayload.forEach((element) => {
+            ret.push(element["content"].length);
+        });
+
+        console.log(ret);
+
+        console.log(storedPayload);
+        res.json({ ret }); // Send a JSON response with a 200 status code
+    } catch (error) {
+        res.status(500).send('Error updating JSON data');
+    }
+});
+
+
 // Define a GET route to retrieve the stored payload
 router.get('/get-payload', (req, res) => {
     if (storedPayload) {
         // Send the stored payload as the response
-        res.json(JSON.parse(storedPayload));
+        res.json(storedPayload);
+
     } else {
         res.status(404).send('No payload available.');
     }
 });
-
 module.exports = router;
