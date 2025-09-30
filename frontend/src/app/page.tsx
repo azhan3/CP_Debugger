@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDebugSessions } from "@/lib/useDebugSessions";
 import type { DebugEntry } from "@/lib/debugStore";
-import { isAdjacencyList } from "@/lib/dataShapes";
+import { isGraphPayload, type GraphPayload } from "@/lib/dataShapes";
 import { SessionNavigator } from "@/components/SessionNavigator";
 import { GraphPanel } from "@/components/GraphPanel";
 import { VariablePanel } from "@/components/VariablePanel";
@@ -14,6 +14,9 @@ export default function Home() {
     useDebugSessions();
   const [selectedSession, setSelectedSession] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState(0);
+  const [selectedGraph, setSelectedGraph] = useState<
+    { id: string; adjacency: number[][] } | null
+  >(null);
   const lastSessionCount = useRef(0);
   const lastStepCount = useRef(0);
 
@@ -25,9 +28,9 @@ export default function Home() {
     }
 
     const latestIndex = sessions.length - 1;
-  const latestSteps = sessions[latestIndex].entries;
+    const latestSteps = sessions[latestIndex].entries;
     const isNewSession = sessions.length !== lastSessionCount.current;
-  const isNewStep = latestSteps.length !== lastStepCount.current;
+    const isNewStep = latestSteps.length !== lastStepCount.current;
 
     if (isNewSession || (isNewStep && selectedSession === latestIndex)) {
       setSelectedSession(latestIndex);
@@ -44,11 +47,32 @@ export default function Home() {
     return sessions[selectedSession]?.entries[selectedEntry];
   }, [sessions, selectedEntry, selectedSession]);
 
-  const graphAdjacency = useMemo(() => {
-    const graphVariable = activeEntry?.content.find(({ value }) =>
-      isAdjacencyList(value)
+  useEffect(() => {
+    if (!activeEntry) {
+      setSelectedGraph(null);
+      return;
+    }
+
+    const adjacencyVars = activeEntry.content.filter(
+      (item): item is { id: string; value: GraphPayload } =>
+        isGraphPayload(item.value)
     );
-    return graphVariable ? (graphVariable.value as number[][]) : null;
+
+    setSelectedGraph((previous) => {
+      if (previous) {
+        const match = adjacencyVars.find(({ id }) => id === previous.id);
+        if (match) {
+          return { id: match.id, adjacency: match.value.adjacency };
+        }
+      }
+
+      if (adjacencyVars.length > 0) {
+        const first = adjacencyVars[0];
+        return { id: first.id, adjacency: first.value.adjacency };
+      }
+
+      return null;
+    });
   }, [activeEntry]);
 
   return (
@@ -93,8 +117,14 @@ export default function Home() {
             onSelectEntry={(index) => setSelectedEntry(index)}
           />
           <section className="grid grid-rows-[minmax(280px,1fr)_minmax(200px,0.9fr)] gap-6 lg:grid-cols-[minmax(340px,1.1fr)_minmax(320px,0.9fr)] lg:grid-rows-1">
-            <GraphPanel adjacency={graphAdjacency} />
-            <VariablePanel entry={activeEntry} />
+            <GraphPanel adjacency={selectedGraph?.adjacency ?? null} />
+            <VariablePanel
+              entry={activeEntry}
+              selectedGraphId={selectedGraph?.id ?? null}
+              onSelectGraph={(id, adjacency) =>
+                setSelectedGraph({ id, adjacency })
+              }
+            />
             <div className="lg:col-span-2">
               <CodePanel
                 activeLine={activeEntry?.line}

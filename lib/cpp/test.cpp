@@ -81,11 +81,23 @@ int main(int argc, char **argv) {
         adj[u].push_back(v);
         adj[v].push_back(u);
     }
-    vector<vector<int>>adj2 = {{1, 2}, {2}, {0}};
-    dbg(adj, adj2);
+    vector<vector<int>> adj2 = {{1, 2}, {2}, {0}};
+    dbg(graph(adj), graph(adj2, "adj2 sample"));
     dbg(adj);
     vector<int>test = {1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,55,5,5,5,5,5,5,5,5,5,5,};
     dbg(test, 6, "TESTING");
+    int cnt = 0;
+    while (true) {
+        if (cnt == 5) {
+            break;
+        }
+        dbg(test, 6, "TESTING");
+        for (int i = 0 ; i < 10 ; i++) {
+            dbg(test, 6, "TESTING");
+        }
+        cnt++;
+    }
+    dbg(graph(adj), adj);
 
     return 0;
 }

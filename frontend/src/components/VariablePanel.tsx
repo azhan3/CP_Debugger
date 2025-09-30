@@ -1,10 +1,13 @@
 "use client";
 
+import clsx from "clsx";
 import type { DebugEntry } from "@/lib/debugStore";
-import { isAdjacencyList } from "@/lib/dataShapes";
+import { isGraphPayload } from "@/lib/dataShapes";
 
 interface VariablePanelProps {
   entry?: DebugEntry | null;
+  selectedGraphId?: string | null;
+  onSelectGraph?: (variableId: string, adjacency: number[][]) => void;
 }
 
 function isFlatArray(value: unknown): value is unknown[] {
@@ -18,7 +21,11 @@ function renderScalar(value: unknown) {
   return <span className="font-mono text-sm">{String(value)}</span>;
 }
 
-export function VariablePanel({ entry }: VariablePanelProps) {
+export function VariablePanel({
+  entry,
+  selectedGraphId,
+  onSelectGraph,
+}: VariablePanelProps) {
   if (!entry) {
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white/60 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400">
@@ -36,56 +43,93 @@ export function VariablePanel({ entry }: VariablePanelProps) {
         </h3>
       </header>
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
-        {entry.content.map(({ id, value }, index) => (
-          <section
-            key={`${id}-${index}`}
-            className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-800/80"
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <h4 className="font-semibold text-zinc-800 dark:text-zinc-100">
-                {id}
-              </h4>
-              {isAdjacencyList(value) ? (
-                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-200">
-                  Visualised as graph
-                </span>
-              ) : null}
-            </div>
-            {isAdjacencyList(value) ? (
-              <pre className="overflow-x-auto text-xs text-zinc-700 dark:text-zinc-200">
-                {JSON.stringify(value)}
-              </pre>
-            ) : isFlatArray(value) ? (
-              <table className="w-full table-auto text-xs">
-                <thead>
-                  <tr className="text-left text-zinc-500">
-                    <th className="px-2 py-1">Index</th>
-                    <th className="px-2 py-1">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {value.map((item, idx) => (
-                    <tr
-                      key={idx}
-                      className="border-t border-zinc-200 dark:border-zinc-700"
-                    >
-                      <td className="px-2 py-1 font-mono text-zinc-600 dark:text-zinc-300">
-                        {idx}
-                      </td>
-                      <td className="px-2 py-1 font-mono">
-                        {typeof item === "object"
-                          ? JSON.stringify(item)
-                          : String(item)}
-                      </td>
+        {entry.content.map(({ id, value }, index) => {
+          const graphPayload = isGraphPayload(value) ? value : null;
+          const isGraph = Boolean(graphPayload);
+          const isSelected = isGraph && selectedGraphId === id;
+          const displayLabel = graphPayload?.label ?? id;
+
+          const handleSelect = () => {
+            if (graphPayload) {
+              onSelectGraph?.(id, graphPayload.adjacency);
+            }
+          };
+
+          return (
+            <section
+              key={`${id}-${index}`}
+              className={clsx(
+                "rounded-md border p-3 text-sm shadow-sm transition dark:border-zinc-700 dark:bg-zinc-800/80",
+                isGraph
+                  ? "bg-indigo-50/40 hover:bg-indigo-50 cursor-pointer dark:bg-indigo-900/10 dark:hover:bg-indigo-900/20"
+                  : "bg-zinc-50 dark:bg-zinc-800/80",
+                isSelected &&
+                  "border-indigo-400 shadow-indigo-200/60 dark:border-indigo-400"
+              )}
+              role={isGraph ? "button" : undefined}
+              tabIndex={isGraph ? 0 : undefined}
+              onClick={handleSelect}
+              onKeyDown={(event) => {
+                if (!isGraph) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleSelect();
+                }
+              }}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="font-semibold text-zinc-800 dark:text-zinc-100">
+                  {displayLabel}
+                </h4>
+                {isGraph ? (
+                  <span
+                    className={clsx(
+                      "rounded-full px-2 py-0.5 text-xs font-medium",
+                      isSelected
+                        ? "bg-indigo-500 text-white"
+                        : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200"
+                    )}
+                  >
+                    {isSelected ? "Active graph" : "Visualise graph"}
+                  </span>
+                ) : null}
+              </div>
+              {graphPayload ? (
+                <pre className="overflow-x-auto text-xs text-zinc-700 dark:text-zinc-200">
+                  {JSON.stringify(graphPayload.adjacency)}
+                </pre>
+              ) : isFlatArray(value) ? (
+                <table className="w-full table-auto text-xs">
+                  <thead>
+                    <tr className="text-left text-zinc-500">
+                      <th className="px-2 py-1">Index</th>
+                      <th className="px-2 py-1">Value</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              renderScalar(value)
-            )}
-          </section>
-        ))}
+                  </thead>
+                  <tbody>
+                    {value.map((item, idx) => (
+                      <tr
+                        key={idx}
+                        className="border-t border-zinc-200 dark:border-zinc-700"
+                      >
+                        <td className="px-2 py-1 font-mono text-zinc-600 dark:text-zinc-300">
+                          {idx}
+                        </td>
+                        <td className="px-2 py-1 font-mono">
+                          {typeof item === "object"
+                            ? JSON.stringify(item)
+                            : String(item)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                renderScalar(value)
+              )}
+            </section>
+          );
+        })}
       </div>
     </div>
   );

@@ -520,6 +520,76 @@ const vector<string> &split_args(const string &s) {
     return *args;
 }
 
+inline string normalize_debug_id(string raw) {
+    auto isSpace = [](unsigned char ch) { return std::isspace(ch); };
+    raw.erase(raw.begin(),
+              std::find_if(raw.begin(), raw.end(),
+                           [&](unsigned char ch) { return !isSpace(ch); }));
+    raw.erase(std::find_if(raw.rbegin(), raw.rend(),
+                           [&](unsigned char ch) { return !isSpace(ch); })
+                  .base(),
+              raw.end());
+    return raw;
+}
+
+inline string extract_graph_label(const string &raw) {
+    const string prefix = "graph(";
+    if (raw.rfind(prefix, 0) == 0 && raw.size() > prefix.size() + 1 &&
+        raw.back() == ')') {
+        string inner = raw.substr(prefix.size(), raw.size() - prefix.size() - 1);
+        return normalize_debug_id(inner);
+    }
+    return "";
+}
+
+struct GraphDebugValue {
+    JSON adjacency;
+    std::string explicit_label;
+};
+
+template <typename T>
+GraphDebugValue graph(const T &adjacency, std::string label = "") {
+    GraphDebugValue wrapper;
+    wrapper.adjacency = JSON(adjacency);
+    wrapper.explicit_label = label;
+    return wrapper;
+}
+
+template <typename T>
+void append_debug_value(JSON &content, const string &rawId, const T &value) {
+    string normalizedId = normalize_debug_id(rawId);
+    JSON entry = JSON::Make(JSON::Class::Object);
+    entry["id"] = normalizedId;
+    entry["value"] = JSON(value);
+    content.append(entry);
+}
+
+inline void append_debug_value(JSON &content, const string &rawId,
+                               const GraphDebugValue &graphValue) {
+    string normalizedId = normalize_debug_id(rawId);
+    string resolvedLabel = normalizedId;
+
+    if (!graphValue.explicit_label.empty()) {
+        resolvedLabel = graphValue.explicit_label;
+    } else {
+        string extracted = extract_graph_label(normalizedId);
+        if (!extracted.empty()) {
+            resolvedLabel = extracted;
+        }
+    }
+
+    JSON graphJson = JSON::Make(JSON::Class::Object);
+    graphJson["__type"] = string("graph");
+    graphJson["adjacency"] = graphValue.adjacency;
+    graphJson["rawId"] = normalizedId;
+    graphJson["label"] = resolvedLabel;
+
+    JSON entry = JSON::Make(JSON::Class::Object);
+    entry["id"] = resolvedLabel;
+    entry["value"] = graphJson;
+    content.append(entry);
+}
+
 bool ex = false;
 JSON dat;
 
@@ -608,8 +678,7 @@ void print_data() {
         JSON obj({"line", __LINE__, "file", __FILE__, "content", JSON()}); \
         vector<string> vs = split_args(#__VA_ARGS__);                    \
         int ind = 0;                                                     \
-        ((obj["content"].append(JSON({"id", vs[ind++], "value", JSON(x)}))), \
-         ...);                                                           \
+    (append_debug_value(obj["content"], vs[ind++], x), ...);        \
         dat.append(obj);                                                 \
         if (!ex) std::atexit(print_data), ex = 1;                         \
     }(__VA_ARGS__)

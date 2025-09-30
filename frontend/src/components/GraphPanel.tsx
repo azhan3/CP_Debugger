@@ -60,7 +60,7 @@ export function GraphPanel({ adjacency }: GraphPanelProps) {
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white/60 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400">
         <p>No graph-like structure detected in the current step.</p>
-        <p className="mt-1 text-xs">Emit an adjacency list (vector&lt;vector&lt;int&gt;&gt;) through dbg to visualise it here.</p>
+        <p className="mt-1 text-xs">Wrap your adjacency list with graph(...) inside dbg to visualise it here.</p>
       </div>
     );
   }
