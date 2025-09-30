@@ -84,7 +84,8 @@ int main(int argc, char **argv) {
     vector<vector<int>>adj2 = {{1, 2}, {2}, {0}};
     dbg(adj, adj2);
     dbg(adj);
-
+    vector<int>test = {1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,55,5,5,5,5,5,5,5,5,5,5,};
+    dbg(test, 6, "TESTING");
 
     return 0;
 }

@@ -23,6 +23,7 @@
 #include <curl/curl.h>
 
 #include <fstream>
+#include <sstream>
 
 using std::begin;
 using std::decay_t;
@@ -522,6 +523,30 @@ const vector<string> &split_args(const string &s) {
 bool ex = false;
 JSON dat;
 
+bool source_loaded = false;
+std::string source_code;
+std::string source_path;
+
+void ensure_source_loaded(const char *file_path) {
+    if (source_loaded)
+        return;
+
+    if (file_path)
+        source_path = file_path;
+
+    std::ifstream in(file_path, std::ios::in | std::ios::binary);
+    if (!in) {
+        source_code.clear();
+        source_loaded = true;
+        return;
+    }
+
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    source_code = ss.str();
+    source_loaded = true;
+}
+
 /*void print_data() {
     std::cerr << dat << "\n";
 }*/
@@ -537,17 +562,22 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 
 void print_data() {
     CURL *curl;
-    JSON json_data = dat; 
+    JSON payload = JSON::Make(JSON::Class::Object);
+    payload["entries"] = dat;
+    if (source_loaded)
+        payload["code"] = source_code;
+    if (!source_path.empty())
+        payload["file"] = source_path;
 
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
 
     if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000/data");
+        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000/api/debug");
 
         curl_easy_setopt(curl, CURLOPT_POST, 1);
 
-        std::string json_str = json_data.dump();  
+        std::string json_str = payload.dump();  
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_str.c_str());
 
         struct curl_slist *headers = NULL;
@@ -566,7 +596,7 @@ void print_data() {
         std::cerr << "Error initializing libcurl." << std::endl;
     }
 
-    std::cout << "DAT ==> " << dat.dump() << "\n";
+    std::cout << "DAT ==> " << payload.dump() << "\n";
 }
 
 
@@ -574,7 +604,8 @@ void print_data() {
 
 #define dbg(...)                                                         \
     [](const auto &...x) {                                               \
-        JSON obj({"line", __LINE__, "content", JSON()});                 \
+        ensure_source_loaded(__FILE__);                                  \
+        JSON obj({"line", __LINE__, "file", __FILE__, "content", JSON()}); \
         vector<string> vs = split_args(#__VA_ARGS__);                    \
         int ind = 0;                                                     \
         ((obj["content"].append(JSON({"id", vs[ind++], "value", JSON(x)}))), \
