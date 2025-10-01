@@ -15,10 +15,39 @@ export default function Home() {
   const [selectedSession, setSelectedSession] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState(0);
   const [selectedGraph, setSelectedGraph] = useState<
-    { id: string; adjacency: number[][] } | null
+    { id: string; payload: GraphPayload } | null
   >(null);
   const lastSessionCount = useRef(0);
   const lastStepCount = useRef(0);
+
+  useEffect(() => {
+    if (sessions.length === 0) {
+      if (selectedSession !== 0) {
+        setSelectedSession(0);
+      }
+      if (selectedEntry !== 0) {
+        setSelectedEntry(0);
+      }
+      return;
+    }
+
+    const clampedSession = Math.min(selectedSession, sessions.length - 1);
+    if (clampedSession !== selectedSession) {
+      setSelectedSession(clampedSession);
+      setSelectedEntry(0);
+      return;
+    }
+
+    const currentEntries = sessions[clampedSession]?.entries ?? [];
+    const clampedEntry = Math.min(
+      selectedEntry,
+      Math.max(0, currentEntries.length - 1)
+    );
+
+    if (clampedEntry !== selectedEntry) {
+      setSelectedEntry(clampedEntry);
+    }
+  }, [sessions, selectedSession, selectedEntry]);
 
   useEffect(() => {
     if (sessions.length === 0) {
@@ -53,27 +82,41 @@ export default function Home() {
       return;
     }
 
-    const adjacencyVars = activeEntry.content.filter(
+    const graphVars = activeEntry.content.filter(
       (item): item is { id: string; value: GraphPayload } =>
         isGraphPayload(item.value)
     );
 
     setSelectedGraph((previous) => {
       if (previous) {
-        const match = adjacencyVars.find(({ id }) => id === previous.id);
+        const match = graphVars.find(({ id }) => id === previous.id);
         if (match) {
-          return { id: match.id, adjacency: match.value.adjacency };
+          return { id: match.id, payload: match.value };
         }
       }
 
-      if (adjacencyVars.length > 0) {
-        const first = adjacencyVars[0];
-        return { id: first.id, adjacency: first.value.adjacency };
+      if (graphVars.length > 0) {
+        const first = graphVars[0];
+        return { id: first.id, payload: first.value };
       }
 
       return null;
     });
   }, [activeEntry]);
+
+      const handleDeleteSession = async (sessionId: string) => {
+        try {
+          const response = await fetch(`/api/debug?id=${sessionId}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Failed to delete session", errorBody);
+          }
+        } catch (error) {
+          console.error("Failed to delete session", error);
+        }
+      };
 
   return (
     <div className="min-h-screen bg-slate-950/5 py-8">
@@ -115,14 +158,15 @@ export default function Home() {
               setSelectedEntry(0);
             }}
             onSelectEntry={(index) => setSelectedEntry(index)}
+            onDeleteSession={handleDeleteSession}
           />
           <section className="grid grid-rows-[minmax(280px,1fr)_minmax(200px,0.9fr)] gap-6 lg:grid-cols-[minmax(340px,1.1fr)_minmax(320px,0.9fr)] lg:grid-rows-1">
-            <GraphPanel adjacency={selectedGraph?.adjacency ?? null} />
+            <GraphPanel graph={selectedGraph?.payload ?? null} />
             <VariablePanel
               entry={activeEntry}
               selectedGraphId={selectedGraph?.id ?? null}
-              onSelectGraph={(id, adjacency) =>
-                setSelectedGraph({ id, adjacency })
+              onSelectGraph={(id, payload) =>
+                setSelectedGraph({ id, payload })
               }
             />
             <div className="lg:col-span-2">

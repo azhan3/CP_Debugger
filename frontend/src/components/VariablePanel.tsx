@@ -2,12 +2,12 @@
 
 import clsx from "clsx";
 import type { DebugEntry } from "@/lib/debugStore";
-import { isGraphPayload } from "@/lib/dataShapes";
+import { isGraphPayload, type GraphPayload } from "@/lib/dataShapes";
 
 interface VariablePanelProps {
   entry?: DebugEntry | null;
   selectedGraphId?: string | null;
-  onSelectGraph?: (variableId: string, adjacency: number[][]) => void;
+  onSelectGraph?: (variableId: string, payload: GraphPayload) => void;
 }
 
 function isFlatArray(value: unknown): value is unknown[] {
@@ -51,7 +51,7 @@ export function VariablePanel({
 
           const handleSelect = () => {
             if (graphPayload) {
-              onSelectGraph?.(id, graphPayload.adjacency);
+              onSelectGraph?.(id, graphPayload);
             }
           };
 

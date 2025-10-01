@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DebugSessionSchema, debugStore } from "@/lib/debugStore";
+import { randomUUID } from "node:crypto";
+import {
+  DebugSessionPayloadSchema,
+  DebugSessionSchema,
+  debugStore,
+} from "@/lib/debugStore";
 
 export async function GET() {
   return NextResponse.json({ sessions: debugStore.getSessions() });
@@ -7,7 +12,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const result = DebugSessionSchema.safeParse(body);
+  const result = DebugSessionPayloadSchema.safeParse(body);
 
   if (!result.success) {
     return NextResponse.json(
@@ -16,7 +21,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  debugStore.addSession(result.data);
+  const session = DebugSessionSchema.parse({
+    ...result.data,
+    id: randomUUID(),
+  });
+
+  debugStore.addSession(session);
+
+  return NextResponse.json({ ok: true, id: session.id });
+}
+
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Missing session id" },
+      { status: 400 }
+    );
+  }
+
+  const removed = debugStore.removeSession(id);
+
+  if (!removed) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
 
   return NextResponse.json({ ok: true });
 }

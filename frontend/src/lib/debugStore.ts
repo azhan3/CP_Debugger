@@ -15,16 +15,25 @@ export const DebugEntrySchema = z.object({
     .default([]),
 });
 
-export const DebugSessionSchema = z.object({
+export const DebugSessionPayloadSchema = z.object({
   entries: z.array(DebugEntrySchema),
   code: z.string().optional(),
   file: z.string().optional(),
 });
 
+export const DebugSessionSchema = DebugSessionPayloadSchema.extend({
+  id: z.string(),
+});
+
 export type DebugEntry = z.infer<typeof DebugEntrySchema>;
+export type DebugSessionPayload = z.infer<typeof DebugSessionPayloadSchema>;
 export type DebugSession = z.infer<typeof DebugSessionSchema>;
 
-export type StoreListener = (payload: DebugSession) => void;
+export type StoreEvent =
+  | { type: "add"; session: DebugSession }
+  | { type: "delete"; id: string };
+
+export type StoreListener = (event: StoreEvent) => void;
 
 class DebugStore {
   private sessions: DebugSession[] = [];
@@ -32,7 +41,17 @@ class DebugStore {
 
   addSession(payload: DebugSession) {
     this.sessions.push(payload);
-    this.emit(payload);
+    this.emit({ type: "add", session: payload });
+  }
+
+  removeSession(id: string) {
+    const previousLength = this.sessions.length;
+    this.sessions = this.sessions.filter((session) => session.id !== id);
+    const removed = previousLength !== this.sessions.length;
+    if (removed) {
+      this.emit({ type: "delete", id });
+    }
+    return removed;
   }
 
   getSessions() {
@@ -52,10 +71,10 @@ class DebugStore {
     };
   }
 
-  private emit(payload: DebugSession) {
+  private emit(event: StoreEvent) {
     this.listeners.forEach((listener) => {
       try {
-        listener(payload);
+        listener(event);
       } catch (error) {
         console.error("Failed to notify store listener", error);
       }

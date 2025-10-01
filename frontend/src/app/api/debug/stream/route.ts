@@ -16,8 +16,12 @@ export async function GET() {
         );
       };
 
-      unsubscribe = debugStore.subscribe((payload) => {
-        send({ type: "payload", payload });
+      unsubscribe = debugStore.subscribe((event) => {
+        if (event.type === "add") {
+          send({ type: "add", payload: event.session });
+        } else if (event.type === "delete") {
+          send({ type: "delete", id: event.id });
+        }
       });
 
       send({ type: "init", payload: debugStore.getSessions() });

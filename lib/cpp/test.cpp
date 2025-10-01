@@ -82,7 +82,28 @@ int main(int argc, char **argv) {
         adj[v].push_back(u);
     }
     vector<vector<int>> adj2 = {{1, 2}, {2}, {0}};
-    dbg(graph(adj), graph(adj2, "adj2 sample"));
+    std::map<int, std::vector<int>> adj_map = {
+        {10, {11, 12}},
+        {11, {10}},
+        {12, {10}}
+    };
+    std::vector<std::vector<std::pair<int, int>>> weighted_adj(n);
+    for (int i = 0; i < n; ++i) {
+        for (int j : adj[i]) {
+            weighted_adj[i].push_back({j, (i + j) % 5 + 1});
+        }
+    }
+    std::map<int, std::vector<std::pair<int, int>>> weighted_map = {
+        {20, {{21, 3}, {22, 7}}},
+        {21, {{22, 2}}},
+        {22, {{20, 5}}}
+    };
+    dbg(
+        graph(adj, "adj"),
+        graph(adj2, "adj2 sample"),
+        graph(adj_map, "adj map"),
+        graph(weighted_adj, "weighted adj"),
+        graph(weighted_map, "weighted map"));
     dbg(adj);
     vector<int>test = {1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,55,5,5,5,5,5,5,5,5,5,5,};
     dbg(test, 6, "TESTING");
@@ -98,6 +119,9 @@ int main(int argc, char **argv) {
         cnt++;
     }
     dbg(graph(adj), adj);
-
+    priority_queue<int>pq;
+    pq.push(5);
+    pq.push(3);
+    dbg(pq);
     return 0;
 }
