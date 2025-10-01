@@ -23,6 +23,7 @@
 #include <curl/curl.h>
 
 #include <fstream>
+#include <sstream>
 
 using std::begin;
 using std::decay_t;
@@ -519,8 +520,102 @@ const vector<string> &split_args(const string &s) {
     return *args;
 }
 
+inline string normalize_debug_id(string raw) {
+    auto isSpace = [](unsigned char ch) { return std::isspace(ch); };
+    raw.erase(raw.begin(),
+              std::find_if(raw.begin(), raw.end(),
+                           [&](unsigned char ch) { return !isSpace(ch); }));
+    raw.erase(std::find_if(raw.rbegin(), raw.rend(),
+                           [&](unsigned char ch) { return !isSpace(ch); })
+                  .base(),
+              raw.end());
+    return raw;
+}
+
+inline string extract_graph_label(const string &raw) {
+    const string prefix = "graph(";
+    if (raw.rfind(prefix, 0) == 0 && raw.size() > prefix.size() + 1 &&
+        raw.back() == ')') {
+        string inner = raw.substr(prefix.size(), raw.size() - prefix.size() - 1);
+        return normalize_debug_id(inner);
+    }
+    return "";
+}
+
+struct GraphDebugValue {
+    JSON adjacency;
+    std::string explicit_label;
+};
+
+template <typename T>
+GraphDebugValue graph(const T &adjacency, std::string label = "") {
+    GraphDebugValue wrapper;
+    wrapper.adjacency = JSON(adjacency);
+    wrapper.explicit_label = label;
+    return wrapper;
+}
+
+template <typename T>
+void append_debug_value(JSON &content, const string &rawId, const T &value) {
+    string normalizedId = normalize_debug_id(rawId);
+    JSON entry = JSON::Make(JSON::Class::Object);
+    entry["id"] = normalizedId;
+    entry["value"] = JSON(value);
+    content.append(entry);
+}
+
+inline void append_debug_value(JSON &content, const string &rawId,
+                               const GraphDebugValue &graphValue) {
+    string normalizedId = normalize_debug_id(rawId);
+    string resolvedLabel = normalizedId;
+
+    if (!graphValue.explicit_label.empty()) {
+        resolvedLabel = graphValue.explicit_label;
+    } else {
+        string extracted = extract_graph_label(normalizedId);
+        if (!extracted.empty()) {
+            resolvedLabel = extracted;
+        }
+    }
+
+    JSON graphJson = JSON::Make(JSON::Class::Object);
+    graphJson["__type"] = string("graph");
+    graphJson["adjacency"] = graphValue.adjacency;
+    graphJson["rawId"] = normalizedId;
+    graphJson["label"] = resolvedLabel;
+
+    JSON entry = JSON::Make(JSON::Class::Object);
+    entry["id"] = resolvedLabel;
+    entry["value"] = graphJson;
+    content.append(entry);
+}
+
 bool ex = false;
 JSON dat;
+
+bool source_loaded = false;
+std::string source_code;
+std::string source_path;
+
+void ensure_source_loaded(const char *file_path) {
+    if (source_loaded)
+        return;
+
+    if (file_path)
+        source_path = file_path;
+
+    std::ifstream in(file_path, std::ios::in | std::ios::binary);
+    if (!in) {
+        source_code.clear();
+        source_loaded = true;
+        return;
+    }
+
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    source_code = ss.str();
+    source_loaded = true;
+}
 
 /*void print_data() {
     std::cerr << dat << "\n";
@@ -537,17 +632,22 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 
 void print_data() {
     CURL *curl;
-    JSON json_data = dat; 
+    JSON payload = JSON::Make(JSON::Class::Object);
+    payload["entries"] = dat;
+    if (source_loaded)
+        payload["code"] = source_code;
+    if (!source_path.empty())
+        payload["file"] = source_path;
 
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
 
     if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000/data");
+        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000/api/debug");
 
         curl_easy_setopt(curl, CURLOPT_POST, 1);
 
-        std::string json_str = json_data.dump();  
+        std::string json_str = payload.dump();  
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_str.c_str());
 
         struct curl_slist *headers = NULL;
@@ -566,7 +666,7 @@ void print_data() {
         std::cerr << "Error initializing libcurl." << std::endl;
     }
 
-    std::cout << "DAT ==> " << dat.dump() << "\n";
+    std::cout << "DAT ==> " << payload.dump() << "\n";
 }
 
 
@@ -574,11 +674,11 @@ void print_data() {
 
 #define dbg(...)                                                         \
     [](const auto &...x) {                                               \
-        JSON obj({"line", __LINE__, "content", JSON()});                 \
+        ensure_source_loaded(__FILE__);                                  \
+        JSON obj({"line", __LINE__, "file", __FILE__, "content", JSON()}); \
         vector<string> vs = split_args(#__VA_ARGS__);                    \
         int ind = 0;                                                     \
-        ((obj["content"].append(JSON({"id", vs[ind++], "value", JSON(x)}))), \
-         ...);                                                           \
+    (append_debug_value(obj["content"], vs[ind++], x), ...);        \
         dat.append(obj);                                                 \
         if (!ex) std::atexit(print_data), ex = 1;                         \
     }(__VA_ARGS__)
