@@ -52,7 +52,8 @@ export function CodePanel({ activeLine, sourceCode }: CodePanelProps) {
   const lineCount = useMemo(() => code.split("\n").length, [code]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    // NOTE: no h-full, no overflow-hidden here
+    <div className="flex flex-col rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
         <div>
           <h3 className="font-semibold text-zinc-800 dark:text-zinc-100">Code viewer</h3>
@@ -66,39 +67,38 @@ export function CodePanel({ activeLine, sourceCode }: CodePanelProps) {
           </span>
         ) : null}
       </header>
-      <div className="grid flex-1 grid-rows-[1fr_auto] overflow-hidden">
-        <div className="overflow-y-auto">
-          <SyntaxHighlighter
-            language="cpp"
-            style={oneDark}
-            showLineNumbers
-            wrapLongLines
-            customStyle={{ margin: 0, padding: "1rem", minHeight: "100%" }}
-            lineNumberStyle={{ color: "#7f848e" }}
-            wrapLines
-            lineProps={(lineNumber: number) => {
-              if (activeLine && lineNumber === activeLine) {
-                return {
-                  style: {
-                    backgroundColor: "rgba(99, 102, 241, 0.2)",
-                    display: "block",
-                    margin: "0 -1rem",
-                    padding: "0 1rem",
-                  },
-                };
-              }
-              return {};
-            }}
-          >
-            {code}
-          </SyntaxHighlighter>
-        </div>
-        <textarea
-          className="h-40 w-full resize-none border-t border-zinc-200 bg-white px-3 py-2 font-mono text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          spellCheck={false}
-        />
+
+      {/* Body: natural height (no grid, no overflow). Page will extend downward. */}
+      <div>
+        <SyntaxHighlighter
+          language="cpp"
+          style={oneDark}
+          showLineNumbers
+          wrapLongLines
+          customStyle={{
+            margin: 0,
+            padding: "1rem",
+            // IMPORTANT: remove minHeight: "100%" so it doesn't force a fixed box
+            // display left default (block) is fine
+          }}
+          lineNumberStyle={{ color: "#7f848e" }}
+          wrapLines
+          lineProps={(lineNumber: number) => {
+            if (activeLine && lineNumber === activeLine) {
+              return {
+                style: {
+                  backgroundColor: "rgba(99, 102, 241, 0.2)",
+                  display: "block",
+                  margin: "0 -1rem",
+                  padding: "0 1rem",
+                },
+              };
+            }
+            return {};
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
       </div>
     </div>
   );

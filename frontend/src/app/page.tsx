@@ -8,6 +8,11 @@ import { SessionNavigator } from "@/components/SessionNavigator";
 import { GraphPanel } from "@/components/GraphPanel";
 import { VariablePanel } from "@/components/VariablePanel";
 import { CodePanel } from "@/components/CodePanel";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "react-resizable-panels";
 
 export default function Home() {
   const { sessions, status, lastUpdate, latestSession, latestEntries } =
@@ -119,102 +124,63 @@ export default function Home() {
       };
 
   return (
-    <div className="min-h-screen bg-slate-950/5 py-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6">
-        <header className="flex flex-col gap-2 rounded-2xl border border-slate-200/70 bg-white/70 p-6 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                CP Debugger Visualizer
-              </h1>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Stream dbg payloads from your C++ programs and inspect graphs,
-                arrays, and scalars in real time.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <StatusPill status={status} />
-              {lastUpdate ? (
-                <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  Last update: {lastUpdate.toLocaleTimeString()}
-                </span>
-              ) : null}
-              {latestEntries.length ? (
-                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-200">
-                  {latestEntries.length} captured steps in latest run
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </header>
-
-        <main className="grid min-h-[70vh] grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-          <SessionNavigator
-            sessions={sessions}
-            activeSession={selectedSession}
-            activeEntry={selectedEntry}
-            onSelectSession={(index) => {
-              setSelectedSession(index);
-              setSelectedEntry(0);
-            }}
-            onSelectEntry={(index) => setSelectedEntry(index)}
-            onDeleteSession={handleDeleteSession}
-          />
-          <section className="grid grid-rows-[minmax(280px,1fr)_minmax(200px,0.9fr)] gap-6 lg:grid-cols-[minmax(340px,1.1fr)_minmax(320px,0.9fr)] lg:grid-rows-1">
-            <GraphPanel graph={selectedGraph?.payload ?? null} />
-            <VariablePanel
-              entry={activeEntry}
-              selectedGraphId={selectedGraph?.id ?? null}
-              onSelectGraph={(id, payload) =>
-                setSelectedGraph({ id, payload })
-              }
-            />
-            <div className="lg:col-span-2">
-              <CodePanel
-                activeLine={activeEntry?.line}
-                sourceCode={sessions[selectedSession]?.code ?? latestSession?.code ?? null}
+    <div className="min-h-screen bg-slate-950/5">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8">
+        <main className="min-h-[600px]">
+          <PanelGroup direction="horizontal" className="min-h-[600px]">
+            {/* Session Navigator - Left Sidebar */}
+            <Panel defaultSize={20} minSize={15} maxSize={35}>
+              <SessionNavigator
+                sessions={sessions}
+                activeSession={selectedSession}
+                activeEntry={selectedEntry}
+                onSelectSession={(index) => {
+                  setSelectedSession(index);
+                  setSelectedEntry(0);
+                }}
+                onSelectEntry={(index) => setSelectedEntry(index)}
+                onDeleteSession={handleDeleteSession}
               />
-            </div>
-          </section>
+            </Panel>
+
+            <PanelResizeHandle className="mx-3 w-1 bg-slate-300/50 hover:bg-blue-500/70 active:bg-blue-600 transition-colors rounded-full" />
+
+            {/* Main Content Area: Graph + Variables (resizable) */}
+            <Panel defaultSize={80} minSize={50}>
+              <PanelGroup direction="vertical">
+                {/* Top Row: Graph and Variables */}
+                <Panel defaultSize={100} minSize={30}>
+                  <PanelGroup direction="horizontal">
+                    <Panel defaultSize={55} minSize={30}>
+                      <GraphPanel graph={selectedGraph?.payload ?? null} />
+                    </Panel>
+
+                    <PanelResizeHandle className="mx-3 w-1 bg-slate-300/50 hover:bg-blue-500/70 active:bg-blue-600 transition-colors rounded-full" />
+
+                    <Panel defaultSize={45} minSize={25}>
+                      <VariablePanel
+                        entry={activeEntry}
+                        selectedGraphId={selectedGraph?.id ?? null}
+                        onSelectGraph={(id, payload) =>
+                          setSelectedGraph({ id, payload })
+                        }
+                      />
+                    </Panel>
+                  </PanelGroup>
+                </Panel>
+              </PanelGroup>
+            </Panel>
+          </PanelGroup>
+
+          {/* Code viewer (outside of resizable panels so it can expand with page) */}
+          <div className="mt-4">
+            <CodePanel
+              activeLine={activeEntry?.line}
+              sourceCode={sessions[selectedSession]?.code ?? latestSession?.code ?? null}
+            />
+          </div>
         </main>
       </div>
     </div>
-  );
-}
-
-function StatusPill({
-  status,
-}: {
-  status: "idle" | "connecting" | "open" | "error";
-}) {
-  const config: Record<typeof status, { label: string; className: string }> = {
-    idle: {
-      label: "Idle",
-      className:
-        "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-    },
-    connecting: {
-      label: "Connecting…",
-      className:
-        "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200",
-    },
-    open: {
-      label: "Live stream",
-      className:
-        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200",
-    },
-    error: {
-      label: "Disconnected",
-      className:
-        "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200",
-    },
-  };
-
-  const { label, className } = config[status];
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-medium ${className}`}>
-      {label}
-    </span>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
 import type { DebugEntry } from "@/lib/debugStore";
 import { isGraphPayload, type GraphPayload } from "@/lib/dataShapes";
@@ -26,6 +27,32 @@ export function VariablePanel({
   selectedGraphId,
   onSelectGraph,
 }: VariablePanelProps) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [truncated, setTruncated] = useState<Record<string, boolean>>({});
+  const previewRefs = useRef(new Map<string, HTMLDivElement | null>());
+
+  const checkOverflow = (id: string, el: HTMLDivElement | null) => {
+    if (!el) return;
+    const isTrunc = el.scrollHeight > el.clientHeight + 1; // allow small rounding
+    setTruncated((prev) => {
+      if (prev[id] === isTrunc) return prev;
+      return { ...prev, [id]: isTrunc };
+    });
+  };
+
+  useEffect(() => {
+    const onResize = () => {
+      for (const [id, el] of previewRefs.current.entries()) {
+        checkOverflow(id, el);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const toggleExpanded = (id: string) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
   if (!entry) {
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white/60 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400">
@@ -95,9 +122,38 @@ export function VariablePanel({
                 ) : null}
               </div>
               {graphPayload ? (
-                <pre className="overflow-x-auto text-xs text-zinc-700 dark:text-zinc-200">
-                  {JSON.stringify(graphPayload.adjacency)}
-                </pre>
+                <div className="mt-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">{displayLabel}</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(id)}
+                        className="rounded px-2 py-0.5 text-xs bg-zinc-100 dark:bg-zinc-800"
+                      >
+                        {expanded[id] ? "Collapse" : "Expand"}
+                      </button>
+                    </div>
+                  </div>
+                  {expanded[id] ? (
+                    <div className="mt-2 adjacency-text text-zinc-700 dark:text-zinc-200">
+                      {JSON.stringify(graphPayload.adjacency)}
+                    </div>
+                  ) : (
+                    <div
+                      className="mt-2 adjacency-text adjacency-preview text-zinc-700 dark:text-zinc-200"
+                      ref={(el) => {
+                        previewRefs.current.set(id, el);
+                        checkOverflow(id, el);
+                      }}
+                    >
+                      {JSON.stringify(graphPayload.adjacency)}
+                      {truncated[id] ? (
+                        <span className="ellipsis-indicator">...</span>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
               ) : isFlatArray(value) ? (
                 <table className="w-full table-auto text-xs">
                   <thead>

@@ -98,12 +98,46 @@ int main(int argc, char **argv) {
         {21, {{22, 2}}},
         {22, {{20, 5}}}
     };
+    // A larger, more interesting weighted graph (~20 nodes)
+    std::vector<std::vector<std::pair<int,int>>> weighted20(20);
+    auto add_edge = [&weighted20](int u, int v, int w) {
+        if (u < 0 || u >= (int)weighted20.size() || v < 0 || v >= (int)weighted20.size()) return;
+        weighted20[u].push_back({v, w});
+        weighted20[v].push_back({u, w});
+    };
+
+    add_edge(0, 1, 4);
+    add_edge(0, 2, 5);
+    add_edge(1, 3, 2);
+    add_edge(1, 4, 6);
+    add_edge(2, 5, 3);
+    add_edge(2, 6, 7);
+    add_edge(3, 7, 8);
+    add_edge(4, 7, 1);
+    add_edge(5, 8, 4);
+    add_edge(6, 9, 2);
+    add_edge(7, 10, 5);
+    add_edge(8, 11, 3);
+    add_edge(9, 12, 6);
+    add_edge(10, 13, 2);
+    add_edge(11, 14, 9);
+    add_edge(12, 15, 4);
+    add_edge(13, 16, 1);
+    add_edge(14, 17, 7);
+    add_edge(15, 18, 3);
+    add_edge(16, 19, 5);
+    // extra cross links to make the topology richer
+    add_edge(3, 5, 4);
+    add_edge(4, 6, 2);
+    add_edge(8, 9, 6);
+    add_edge(14, 19, 8);
     dbg(
         graph(adj, "adj"),
         graph(adj2, "adj2 sample"),
         graph(adj_map, "adj map"),
         graph(weighted_adj, "weighted adj"),
         graph(weighted_map, "weighted map"));
+    dbg(graph(weighted20, "weighted20 adj"));
     dbg(adj);
     vector<int>test = {1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,55,5,5,5,5,5,5,5,5,5,5,};
     dbg(test, 6, "TESTING");
