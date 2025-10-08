@@ -1,4 +1,4 @@
-import { debugStore } from "@/lib/debugStore";
+import { debugStore } from "@/lib/debugStore.server";
 
 export const dynamic = "force-dynamic";
 
