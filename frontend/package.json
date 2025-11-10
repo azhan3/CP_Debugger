@@ -83,12 +83,11 @@
   "scripts": {
     "build": "tsc -p .",
     "watch": "tsc -w -p .",
-    "package": "vsce package"
+    "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.11.19",
     "@types/vscode": "^1.90.0",
-    "typescript": "^5.5.4",
-    "vsce": "^2.24.0"
+    "typescript": "^5.5.4"
   }
 }
