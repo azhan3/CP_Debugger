@@ -262,13 +262,13 @@ async function loadSessionsFromFile(filePath: string): Promise<DebugSession[]> {
 }
 
 async function loadSessionsFromHttp(endpoint: string): Promise<DebugSession[]> {
-  const response = await fetch(endpoint, { cache: "no-store" });
+  const response = await fetch(endpoint);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} fetching sessions`);
   }
-  const body = await response.json();
-  if (body && Array.isArray(body.sessions)) {
-    return coerceSessions(body.sessions, `http:${endpoint}`);
+  const body = (await response.json()) as unknown;
+  if (body && typeof body === "object" && Array.isArray((body as { sessions?: unknown }).sessions)) {
+    return coerceSessions((body as { sessions?: unknown }).sessions, `http:${endpoint}`);
   }
   return coerceSessions(body, `http:${endpoint}`);
 }
