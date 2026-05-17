@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import {
   DebugSessionPayloadSchema,
   DebugSessionSchema,
-  debugStore,
 } from "@/lib/debugStore";
+import { debugStore } from "@/lib/debugStore.server";
 
 export async function GET() {
   return NextResponse.json({ sessions: debugStore.getSessions() });
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   const session = DebugSessionSchema.parse({
     ...result.data,
-    id: randomUUID(),
+    id: result.data.id ?? randomUUID(),
   });
 
   debugStore.addSession(session);

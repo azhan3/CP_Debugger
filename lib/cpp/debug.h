@@ -8,22 +8,24 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <fstream>
 #include <initializer_list>
 #include <iostream>
 #include <map>
 #include <ostream>
 #include <queue>
+#include <sstream>
 #include <stack>
 #include <string>
 #include <type_traits>
 #include <vector>
 
+#ifdef CPDBG_ENABLE_CURL
 #include <curl/curl.h>
-
-#include <fstream>
-#include <sstream>
+#endif
 
 using std::begin;
 using std::decay_t;
@@ -46,7 +48,7 @@ using std::string;
 using std::vector;
 
 
-string json_escape(const string &str) {
+inline string json_escape(const string &str) {
     string output;
     for (unsigned i = 0; i < str.length(); ++i) switch (str[i]) {
             case '\"':
@@ -74,7 +76,7 @@ string json_escape(const string &str) {
                 output += str[i];
                 break;
         }
-    return std::move(output);
+    return output;
 }
 
 class JSON {
@@ -110,6 +112,10 @@ class JSON {
     };
 
     JSON() : Internal(), Type(Class::Null) {
+    }
+
+    ~JSON() {
+        ClearInternal();
     }
 
     JSON(initializer_list<JSON> list) : JSON() {
@@ -359,7 +365,7 @@ class JSON {
 
     string ToString() const {
         bool b;
-        return std::move(ToString(b));
+        return ToString(b);
     }
     string ToString(bool &ok) const {
         ok = (Type == Class::String);
@@ -497,27 +503,64 @@ class JSON {
     Class Type = Class::Null;
 };
 
-std::ostream &operator<<(std::ostream &os, const JSON &json) {
+inline std::ostream &operator<<(std::ostream &os, const JSON &json) {
     os << json.dump();
     return os;
 }
 
-const vector<string> &split_args(const string &s) {
-    int f = 0, q = 0;
-    vector<string> *args = new vector<string>({""});
-    for (int i = 0; i < (int)s.size(); i++) {
-        if (s[i] == ',' && !q && !f) {
-            args->push_back("");
-            i++;
+inline string trim_arg(const string &value) {
+    auto is_space = [](unsigned char ch) { return std::isspace(ch) != 0; };
+    auto start = std::find_if(value.begin(), value.end(),
+                              [&](unsigned char ch) { return !is_space(ch); });
+    auto end = std::find_if(value.rbegin(), value.rend(),
+                            [&](unsigned char ch) { return !is_space(ch); })
+                   .base();
+    if (start >= end) {
+        return string();
+    }
+    return string(start, end);
+}
+
+inline vector<string> split_args(const string &s) {
+    vector<string> args;
+    string current;
+    int depth = 0;
+    bool quoted = false;
+
+    for (size_t i = 0; i < s.size(); ++i) {
+        char ch = s[i];
+        if (ch == '\\' && i + 1 < s.size()) {
+            current.push_back(ch);
+            current.push_back(s[++i]);
             continue;
         }
-        args->back().push_back(s[i]);
-        if (s[i] == '\\') args->back().push_back(s[++i]);
-        if (s[i] == '\"') q = !q;
-        if (s[i] == '(' && !q) f++;
-        if (s[i] == ')' && !q) f--;
+
+        if (ch == '\"') {
+            quoted = !quoted;
+            current.push_back(ch);
+            continue;
+        }
+
+        if (!quoted) {
+            if (ch == '(') {
+                depth++;
+            } else if (ch == ')' && depth > 0) {
+                depth--;
+            } else if (ch == ',' && depth == 0) {
+                args.push_back(trim_arg(current));
+                current.clear();
+                continue;
+            }
+        }
+
+        current.push_back(ch);
     }
-    return *args;
+
+    if (!current.empty() || !args.empty()) {
+        args.push_back(trim_arg(current));
+    }
+
+    return args;
 }
 
 inline string normalize_debug_id(string raw) {
@@ -590,97 +633,194 @@ inline void append_debug_value(JSON &content, const string &rawId,
     content.append(entry);
 }
 
-bool ex = false;
-JSON dat;
+namespace cpdbg {
 
-bool source_loaded = false;
-std::string source_code;
-std::string source_path;
+struct DebugState {
+    bool flush_registered = false;
+    bool source_loaded = false;
+    JSON entries;
+    string source_code;
+    string source_path;
+    string output_path;
+    string session_id;
+    string http_url;
+    bool warned_no_http = false;
+#ifdef CPDBG_ENABLE_CURL
+    bool curl_initialized = false;
+#endif
+};
 
-void ensure_source_loaded(const char *file_path) {
-    if (source_loaded)
+inline DebugState state;
+
+inline string resolve_output_path() {
+    if (!state.output_path.empty()) {
+        return state.output_path;
+    }
+    const char *env_path = std::getenv("CPDBG_OUTPUT_PATH");
+    if (env_path && *env_path) {
+        return string(env_path);
+    }
+    return string("debug_output.json");
+}
+
+inline string resolve_http_url() {
+    if (!state.http_url.empty()) {
+        return state.http_url;
+    }
+    const char *env_url = std::getenv("CPDBG_HTTP_URL");
+    if (env_url && *env_url) {
+        return string(env_url);
+    }
+    return string();
+}
+
+inline void set_output_path(const string &path) {
+    state.output_path = path;
+}
+
+inline void set_session_id(const string &id) {
+    state.session_id = id;
+}
+
+inline void set_http_endpoint(const string &url) {
+    state.http_url = url;
+}
+
+inline void ensure_source_loaded(const char *file_path) {
+    if (state.source_loaded)
         return;
 
     if (file_path)
-        source_path = file_path;
+        state.source_path = file_path;
+
+    if (!file_path) {
+        state.source_loaded = true;
+        return;
+    }
 
     std::ifstream in(file_path, std::ios::in | std::ios::binary);
     if (!in) {
-        source_code.clear();
-        source_loaded = true;
+        state.source_code.clear();
+        state.source_loaded = true;
         return;
     }
 
     std::ostringstream ss;
     ss << in.rdbuf();
-    source_code = ss.str();
-    source_loaded = true;
+    state.source_code = ss.str();
+    state.source_loaded = true;
 }
 
-/*void print_data() {
-    std::cerr << dat << "\n";
-}*/
+inline void dbg_flush();
 
-
-
-static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
-{
-    ((std::string*)userp)->append((char*)contents, size * nmemb);
-    return size * nmemb;
+inline void register_flush() {
+    if (state.flush_registered)
+        return;
+    std::atexit(dbg_flush);
+    state.flush_registered = true;
 }
 
-
-void print_data() {
-    CURL *curl;
-    JSON payload = JSON::Make(JSON::Class::Object);
-    payload["entries"] = dat;
-    if (source_loaded)
-        payload["code"] = source_code;
-    if (!source_path.empty())
-        payload["file"] = source_path;
-
+#ifdef CPDBG_ENABLE_CURL
+inline void ensure_curl_init() {
+    if (state.curl_initialized) {
+        return;
+    }
     curl_global_init(CURL_GLOBAL_ALL);
-    curl = curl_easy_init();
+    std::atexit(curl_global_cleanup);
+    state.curl_initialized = true;
+}
 
-    if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:3000/api/debug");
-
-        curl_easy_setopt(curl, CURLOPT_POST, 1);
-
-        std::string json_str = payload.dump();  
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_str.c_str());
-
-        struct curl_slist *headers = NULL;
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-        CURLcode res = curl_easy_perform(curl);
-
-        if (res != CURLE_OK) {
-            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
-        }
-
-        curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
-    } else {
+inline void send_http_payload(const string &url, const string &json_str) {
+    ensure_curl_init();
+    CURL *curl = curl_easy_init();
+    if (!curl) {
         std::cerr << "Error initializing libcurl." << std::endl;
+        return;
     }
 
-    std::cout << "DAT ==> " << payload.dump() << "\n";
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_str.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, json_str.size());
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 2000L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 5000L);
+    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res)
+                  << std::endl;
+    }
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+}
+#endif
+
+inline void dbg_flush() {
+    JSON payload = JSON::Make(JSON::Class::Object);
+    JSON entries_snapshot = state.entries;
+    if (entries_snapshot.JSONType() == JSON::Class::Null) {
+        entries_snapshot = JSON::Make(JSON::Class::Array);
+    }
+
+    payload["entries"] = entries_snapshot;
+
+    if (!state.session_id.empty()) {
+        payload["id"] = state.session_id;
+    }
+    if (state.source_loaded && !state.source_code.empty()) {
+        payload["code"] = state.source_code;
+    }
+    if (!state.source_path.empty()) {
+        payload["file"] = state.source_path;
+    }
+
+    string json_str = payload.dump();
+    string output_path = resolve_output_path();
+
+    if (!output_path.empty()) {
+        std::ofstream out(output_path, std::ios::out | std::ios::binary);
+        if (!out) {
+            std::cerr << "Unable to write dbg output to " << output_path
+                      << std::endl;
+        } else {
+            out << json_str;
+        }
+    }
+
+    string http_url = resolve_http_url();
+    if (!http_url.empty()) {
+#ifdef CPDBG_ENABLE_CURL
+        send_http_payload(http_url, json_str);
+#else
+        if (!state.warned_no_http) {
+            std::cerr << "HTTP output requested but CPDBG_ENABLE_CURL is not set."
+                      << std::endl;
+            state.warned_no_http = true;
+        }
+#endif
+    }
 }
 
+}  // namespace cpdbg
 
 
 
-#define dbg(...)                                                         \
-    [](const auto &...x) {                                               \
-        ensure_source_loaded(__FILE__);                                  \
-        JSON obj({"line", __LINE__, "file", __FILE__, "content", JSON()}); \
-        vector<string> vs = split_args(#__VA_ARGS__);                    \
-        int ind = 0;                                                     \
-    (append_debug_value(obj["content"], vs[ind++], x), ...);        \
-        dat.append(obj);                                                 \
-        if (!ex) std::atexit(print_data), ex = 1;                         \
+
+#define dbg(...)                                                           \
+    [](const auto &...x) {                                                 \
+        cpdbg::ensure_source_loaded(__FILE__);                             \
+        JSON obj({"line", __LINE__, "file", __FILE__, "content", JSON()});   \
+        vector<string> vs = split_args(#__VA_ARGS__);                      \
+        size_t ind = 0;                                                    \
+        (append_debug_value(obj["content"], vs[ind++], x), ...);           \
+        cpdbg::state.entries.append(obj);                                  \
+        cpdbg::register_flush();                                           \
     }(__VA_ARGS__)
 
 #endif

@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cmath>
-#include <curl/curl.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>

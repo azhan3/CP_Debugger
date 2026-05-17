@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CP Debugger VS Code Extension
 
-## Getting Started
+This folder contains the VS Code extension that replaces the browser-based frontend.
 
-First, run the development server:
+## Quick start
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install dependencies:
+   ```
+   npm install
+   ```
+2. Build the extension:
+   ```
+   npm run build
+   ```
+3. Launch the extension in VS Code using the Extension Development Host.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Configuration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `cpDebugger.mode`: `file` (default) or `http`.
+- `cpDebugger.sessionFile`: file path to the debug output JSON.
+- `cpDebugger.httpEndpoint`: HTTP endpoint for debug sessions (http mode).
+- `cpDebugger.autoRefresh`: auto-refresh data.
+- `cpDebugger.pollIntervalMs`: polling interval for http mode.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Notes
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The legacy Next.js frontend is preserved in `frontend-legacy/`.
+- The extension UI is optimized for the VS Code sidebar and panel layout.

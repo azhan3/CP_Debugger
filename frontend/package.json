@@ -1,40 +1,93 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
-    "lint": "eslint"
+  "name": "cp-debugger",
+  "displayName": "CP Debugger",
+  "description": "CP Debugger visualizer inside VS Code",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
   },
-  "dependencies": {
-    "clsx": "^2.1.1",
-    "d3": "^7.9.0",
-    "next": "15.5.4",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-force-graph-2d": "^1.29.0",
-    "react-force-graph-3d": "^1.29.0",
-    "react-syntax-highlighter": "^15.6.6",
-    "three": "^0.180.0",
-    "three-spritetext": "^1.10.0",
-    "zod": "^3.23.8"
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:cpDebugger.open",
+    "onCommand:cpDebugger.refresh",
+    "onView:cpDebugger.sessions"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "cpDebugger.open",
+        "title": "CP Debugger: Open Panel"
+      },
+      {
+        "command": "cpDebugger.refresh",
+        "title": "CP Debugger: Refresh"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cpDebugger",
+          "title": "CP Debugger",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cpDebugger": [
+        {
+          "id": "cpDebugger.sessions",
+          "name": "Sessions",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CP Debugger",
+      "properties": {
+        "cpDebugger.mode": {
+          "type": "string",
+          "enum": ["file", "http"],
+          "default": "file",
+          "description": "Select session ingestion mode."
+        },
+        "cpDebugger.sessionFile": {
+          "type": "string",
+          "default": "${workspaceFolder}/debug_output.json",
+          "description": "Path to the debug session JSON file."
+        },
+        "cpDebugger.httpEndpoint": {
+          "type": "string",
+          "default": "http://localhost:3000/api/debug",
+          "description": "HTTP endpoint for fetching sessions in http mode."
+        },
+        "cpDebugger.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh when data changes."
+        },
+        "cpDebugger.pollIntervalMs": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 500,
+          "description": "Polling interval for HTTP mode in milliseconds."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-  "@types/d3-drag": "^3.0.7",
-  "@types/d3-force": "^3.0.10",
-  "@types/d3-selection": "^3.0.11",
-  "@types/d3-zoom": "^3.0.8",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@types/three": "^0.180.0",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.4",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@types/node": "^20.11.19",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.5.4"
   }
 }
